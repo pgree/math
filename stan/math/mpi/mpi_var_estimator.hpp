@@ -8,6 +8,7 @@
 #include <boost/accumulators/statistics/mean.hpp>
 #include <boost/accumulators/statistics/variance.hpp>
 #include <boost/accumulators/statistics/count.hpp>
+#include <boost/mpi.hpp>
 #include <algorithm>
 #include <vector>
 
@@ -27,6 +28,11 @@ class mpi_var_estimator {
       acc_[i] = {};
     }
     count_acc_ = {};
+  }
+
+  void restart(size_t num_params) {
+    acc_.resize(num_params);
+    restart();
   }
 
   inline void add_sample(const Eigen::VectorXd& q) {
@@ -59,7 +65,7 @@ class mpi_var_estimator {
     sample_mean(var, n_all);
   }
 
-  inline void sample_variance(Eigen::VectorXd& var) {
+  inline int sample_variance(Eigen::VectorXd& var) {
     std::vector<int> n_samples(num_samples());
     int n = n_samples[0];
     int n_all = n_samples[1];
@@ -74,6 +80,11 @@ class mpi_var_estimator {
     var.resize(num_params);
     MPI_Allreduce(work.data(), var.data(), num_params, MPI_DOUBLE, MPI_SUM, comm_.comm());
     var /= (n_all - 1.0);
+    return n_all;
+  }
+
+  inline size_t num_params() {
+    return acc_.size();
   }
 
  protected:

@@ -45,12 +45,12 @@ TEST(mpi_variance_test, var_estimator) {
     chain_draws[i] = Eigen::VectorXd::Map(&all_draws(i_begin), num_params);
   }
 
-  stan::math::mpi::mpi_var_estimator estimator(num_params, comm);
+  stan::math::mpi::mpi_var_estimator estimator(num_params);
   for (int i = 0; i < num_draws; ++i) {
     estimator.add_sample(chain_draws[i]);
   }
 
-  EXPECT_EQ(num_draws * comm.size(), estimator.num_samples()[1]);
+  EXPECT_EQ(num_draws * comm.size(), estimator.num_samples(comm)[1]);
 
   stan::math::welford_var_estimator welford(num_params);
   for (int i = 0; i < num_draws * num_chains; ++i) {
@@ -60,13 +60,13 @@ TEST(mpi_variance_test, var_estimator) {
 
   Eigen::VectorXd m, m0;
   Eigen::VectorXd v, v0;
-  estimator.sample_mean(m);
+  estimator.sample_mean(m, comm);
   welford.sample_mean(m0);
   for (int i = 0; i < num_params; ++i) {
     EXPECT_FLOAT_EQ(m(i), m0(i));
   }
 
-  estimator.sample_variance(v);
+  estimator.sample_variance(v, comm);
   welford.sample_variance(v0);
   for (int i = 0; i < num_params; ++i) {
     EXPECT_FLOAT_EQ(v(i), v0(i));

@@ -17,11 +17,18 @@ namespace math {
   namespace mpi {
 
 class mpi_var_estimator {
+  using acc_param = boost::accumulators::accumulator_set<double,
+                                                         boost::accumulators::stats<
+                                                         boost::accumulators::tag::sum,
+                                                         boost::accumulators::tag::mean,
+                                                         boost::accumulators::tag::variance>>;
+  using acc_count = boost::accumulators::accumulator_set<int,
+                                                         boost::accumulators::features<boost::accumulators::tag::count>>;
+
  public:
-  mpi_var_estimator(size_t num_params, const stan::math::mpi::Communicator& comm)
-    : acc_(num_params), comm_(comm) {
-    restart();
-  }
+  mpi_var_estimator(size_t num_params)
+    : acc_(num_params)
+  {}
 
   void restart() {
     for (size_t i = 0; i < acc_.size(); ++i) {
@@ -42,43 +49,43 @@ class mpi_var_estimator {
     count_acc_(0);
   }
 
-  inline std::vector<int> num_samples() {
+  inline std::vector<int> num_samples(const Communicator& comm) {
     int n = boost::accumulators::count(count_acc_);
     int n_all;
-    MPI_Allreduce(&n, &n_all, 1, MPI_INT, MPI_SUM, comm_.comm());    
+    MPI_Allreduce(&n, &n_all, 1, MPI_INT, MPI_SUM, comm.comm());    
     return {n, n_all};
   }
 
-  inline void sample_mean(Eigen::VectorXd& var, int n_all) {
+  inline void sample_mean(Eigen::VectorXd& var, int n_all, const Communicator& comm) {
     int num_params = acc_.size();
     Eigen::ArrayXd work(num_params);
     var.resize(num_params);
     for (int i = 0; i < num_params; ++i) {    
       work(i) = boost::accumulators::sum(acc_[i]);
     }
-    MPI_Allreduce(work.data(), var.data(), num_params, MPI_DOUBLE, MPI_SUM, comm_.comm());
+    MPI_Allreduce(work.data(), var.data(), num_params, MPI_DOUBLE, MPI_SUM, comm.comm());
     var /= n_all;
   }
 
-  inline void sample_mean(Eigen::VectorXd& var) {
-    int n_all = num_samples()[1];
-    sample_mean(var, n_all);
+  inline void sample_mean(Eigen::VectorXd& var, const Communicator& comm) {
+    int n_all = num_samples(comm)[1];
+    sample_mean(var, n_all, comm);
   }
 
-  inline int sample_variance(Eigen::VectorXd& var) {
-    std::vector<int> n_samples(num_samples());
+  inline int sample_variance(Eigen::VectorXd& var, const Communicator& comm) {
+    std::vector<int> n_samples(num_samples(comm));
     int n = n_samples[0];
     int n_all = n_samples[1];
-    int m = comm_.size();
+    int m = comm.size();
     int num_params = acc_.size();
     Eigen::VectorXd work(num_params);
-    sample_mean(work, n_all);
+    sample_mean(work, n_all, comm);
     for (int i = 0; i < num_params; ++i) {    
       double d = boost::accumulators::mean(acc_[i]) - work(i);
       work(i) = n * boost::accumulators::variance(acc_[i]) + n * d * d;
     }
     var.resize(num_params);
-    MPI_Allreduce(work.data(), var.data(), num_params, MPI_DOUBLE, MPI_SUM, comm_.comm());
+    MPI_Allreduce(work.data(), var.data(), num_params, MPI_DOUBLE, MPI_SUM, comm.comm());
     var /= (n_all - 1.0);
     return n_all;
   }
@@ -88,15 +95,8 @@ class mpi_var_estimator {
   }
 
  protected:
-  const stan::math::mpi::Communicator& comm_;
-  std::vector<
-    boost::accumulators::accumulator_set<double,
-                                         boost::accumulators::stats<
-                                         boost::accumulators::tag::sum,
-                                         boost::accumulators::tag::mean,
-                                         boost::accumulators::tag::variance>>> acc_;
-  boost::accumulators::accumulator_set<int,
-                                       boost::accumulators::features<boost::accumulators::tag::count> > count_acc_;
+  std::vector<acc_param> acc_;
+  acc_count count_acc_;
 };
 
   }

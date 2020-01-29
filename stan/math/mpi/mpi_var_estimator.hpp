@@ -1,6 +1,8 @@
 #ifndef STAN_MATH_MPI_VAR_ESTIMATOR_HPP
 #define STAN_MATH_MPI_VAR_ESTIMATOR_HPP
 
+#ifdef STAN_LANG_MPI
+
 #include <stan/math/mpi/envionment.hpp>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics/stats.hpp>
@@ -102,4 +104,7 @@ class mpi_var_estimator {
   }
 }  // namespace math
 }  // namespace stan
+
+#endif
+
 #endif

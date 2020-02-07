@@ -28,7 +28,7 @@ class mpi_var_estimator {
                                                          boost::accumulators::features<boost::accumulators::tag::count>>;
 
  public:
-  mpi_var_estimator(size_t num_params)
+  explicit mpi_var_estimator(size_t num_params)
     : acc_(num_params)
   {}
 

@@ -38,6 +38,8 @@ TEST(mathMixScalFun, logSumExp) {
   stan::test::expect_ad(f, nan, nan);
 
   stan::test::expect_value(f, 1000.0, 10.0);
+
+  stan::test::expect_ad(f, 1e50, 1e50);
 }
 
 TEST(MathMixMatFun, logSumExp) {
